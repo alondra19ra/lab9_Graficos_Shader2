@@ -1,0 +1,77 @@
+Shader "Unlit/Ejercicio13"
+{
+    Properties
+    {
+        _MainTex("Base Texture", 2D) = "white" {}
+        _Mask("Mask Texture", 2D) = "gray" {}
+        _Threshold("Cutout Threshold", Range(0,1)) = 0.5
+    }
+
+        SubShader
+        {
+            Tags { "RenderType" = "Opaque" "Queue" = "AlphaTest" }
+            LOD 100
+            Cull Off
+
+            Pass
+            {
+                CGPROGRAM
+                #pragma vertex vert
+                #pragma fragment frag
+                #pragma multi_compile_fog
+
+                #include "UnityCG.cginc"
+
+                struct appdata
+                {
+                    float4 vertex : POSITION;
+                    float2 uv : TEXCOORD0;
+                };
+
+                struct v2f
+                {
+                    float2 uvMain : TEXCOORD0;
+                    float2 uvMask : TEXCOORD1;
+                    UNITY_FOG_COORDS(2)
+                    float4 vertex : SV_POSITION;
+                };
+
+                sampler2D _MainTex;
+                float4 _MainTex_ST;
+
+                sampler2D _Mask;
+                float4 _Mask_ST;
+
+                float _Threshold;
+
+                v2f vert(appdata v)
+                {
+                    v2f o;
+                    o.vertex = UnityObjectToClipPos(v.vertex);
+
+                    // Aplica tiling/offset independiente
+                    o.uvMain = TRANSFORM_TEX(v.uv, _MainTex);
+                    o.uvMask = TRANSFORM_TEX(v.uv, _Mask);
+
+                    UNITY_TRANSFER_FOG(o, o.vertex);
+                    return o;
+                }
+
+                fixed4 frag(v2f i) : SV_Target
+                {
+                    // Muestrea la textura base y la máscara
+                    fixed4 baseCol = tex2D(_MainTex, i.uvMain);
+                    fixed maskVal = tex2D(_Mask, i.uvMask).r; // usa canal rojo de la máscara
+
+                    // Descarta píxeles si la máscara es menor al umbral
+                    clip(maskVal - _Threshold);
+
+                    fixed4 col = baseCol;
+
+                    UNITY_APPLY_FOG(i.fogCoord, col);
+                    return col;
+                }
+                ENDCG
+            }
+        }
+}
